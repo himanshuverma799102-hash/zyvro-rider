@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d0c">
+<title>ZYVRO Rider</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#0b0d0c;--panel:#141815;--line:#2a332c;--text:#f4f7f2;--muted:#9aa69a;--lime:#c5ff70;--red:#ff7474}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,input{font:inherit}button{cursor:pointer}
+.hidden{display:none!important}
+.logo{width:38px;height:38px;border-radius:12px;background:var(--lime);color:#10160d;display:grid;place-items:center;font-weight:900;font-size:19px}
+#auth{min-height:100%;display:grid;place-items:center;padding:20px}
+.card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:22px}
+.card h1{margin:14px 0 4px;font-size:24px}
+.muted{color:var(--muted);font-size:13px;margin:0}
+.tabs{display:flex;gap:6px;margin:18px 0 4px}
+.tabs button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted)}
+.tabs button.on{background:#222b22;color:var(--lime);border-color:#34412d}
+.card input{width:100%;margin-top:10px;padding:13px 14px;border-radius:12px;border:1px solid #303a31;background:#0b100c;color:var(--text)}
+input:focus-visible,button:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.btn{width:100%;margin-top:12px;padding:13px;border:0;border-radius:12px;font-weight:750;background:var(--lime);color:#11170c}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:#222b23;color:var(--text);border:1px solid var(--line)}
+#msg{margin-top:12px;font-size:13px;color:#ff9292;min-height:18px}
+#map{position:fixed;inset:0;background:#10140f}
+.leaflet-top.leaflet-left{top:calc(58px + env(safe-area-inset-top))}
+.bar{position:fixed;top:0;left:0;right:0;z-index:1001;display:flex;justify-content:space-between;align-items:center;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;pointer-events:none}
+.bar>*{pointer-events:auto}
+.chip{background:#141815f0;border:1px solid var(--line);border-radius:99px;padding:7px 13px;font-size:12px;color:var(--text)}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:1001;max-width:520px;margin:auto;background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:22px 22px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
+.row{display:flex;align-items:center;gap:10px;padding:7px 0}
+.row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row input{flex:1;min-width:0;padding:11px 12px;border-radius:10px;border:1px solid #303a31;background:#0b100c;color:var(--text)}
+.mini{border:1px solid var(--line);background:#222b23;color:var(--text);border-radius:9px;padding:8px 11px;font-size:12px}
+.pin{display:inline-block;width:12px;height:12px;border-radius:50%;flex:none}
+.pin.lime{background:var(--lime);box-shadow:0 0 0 4px #c5ff7033}
+.pin.red{background:var(--red);box-shadow:0 0 0 4px #ff747433}
+.fare{margin:6px 0 0;font-size:14px;color:var(--muted)}
+.fare b{font-size:24px;color:var(--text)}
+#rs b{font-size:18px}
+.toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);z-index:2000;max-width:90vw;background:#202820;border:1px solid #3b4b37;padding:11px 15px;border-radius:12px;font-size:13px}
+</style>
+</head>
+<body>
+<main id="auth">
+  <form id="form" class="card">
+    <div class="logo">Z</div>
+    <h1>ZYVRO Rider</h1>
+    <p class="muted">Book a bike ride in a few taps.</p>
+    <div class="tabs"><button type="button" data-m="login" class="on">Log in</button><button type="button" data-m="signup">Sign up</button></div>
+    <input id="nameIn" class="hidden" placeholder="Full name" autocomplete="name">
+    <input id="em" type="email" placeholder="Email" autocomplete="username" required>
+    <input id="pw" type="password" placeholder="Password (6+ characters)" autocomplete="current-password" required minlength="6">
+    <button id="go1" class="btn">Log in</button>
+    <div id="msg" role="alert"></div>
+  </form>
+</main>
+
+<div id="app" class="hidden">
+  <div id="map"></div>
+  <div class="bar"><div class="chip" id="who"></div><button class="chip" id="out">Sign out</button></div>
+  <section class="sheet">
+    <div id="plan">
+      <div class="row"><i class="pin lime"></i><span id="pl">Finding your location…</span><button class="mini" id="loc">Locate me</button></div>
+      <div class="row"><i class="pin red"></i><input id="q" placeholder="Where to? Search, or tap the map"><button class="mini" id="go">Search</button></div>
+      <p class="fare" id="fare">Choose a drop point to see the fare.</p>
+      <button class="btn" id="book" disabled>Book ride</button>
+    </div>
+    <div id="ride" class="hidden">
+      <div id="rs"></div>
+      <button class="btn ghost hidden" id="cancel">Cancel ride</button>
+      <button class="btn hidden" id="again">Book another ride</button>
+    </div>
+  </section>
+</div>
+<div id="toast" class="toast hidden" role="status"></div>
+
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,updateProfile,signOut} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import {getFirestore,doc,setDoc,addDoc,updateDoc,onSnapshot,collection,serverTimestamp} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+const app=initializeApp({apiKey:"AIzaSyC2WKbrlpgNr4GqvyfbO5u8T9kJMOwSegM",authDomain:"zyvro-b1527.firebaseapp.com",projectId:"zyvro-b1527",storageBucket:"zyvro-b1527.firebasestorage.app",appId:"1:106623447957:web:c74de756abc737d16cb35c"});
+const auth=getAuth(app),db=getFirestore(app);
+const BASE=20,PERKM=8,MIN=30; // fare in rupees: base + per km, with a minimum
+const $=id=>document.getElementById(id);
+let mode='login',map,pm,dm,pick,drop,km=0,fare=0,rideId=null,unsub=null;
+
+const ERR={'auth/invalid-credential':'Wrong email or password.','auth/invalid-email':'Enter a valid email.','auth/email-already-in-use':'This email already has an account. Log in instead.','auth/weak-password':'Password needs at least 6 characters.','auth/unauthorized-domain':'Add this website in Firebase: Authentication > Settings > Authorized domains.','auth/operation-not-allowed':'Turn on Email/Password in Firebase Authentication.','auth/network-request-failed':'No internet. Try again.','permission-denied':'Firestore rules blocked this. Publish the updated rules.'};
+const err=e=>ERR[e.code]||e.message||'Something went wrong.';
+const toast=t=>{const e=$('toast');e.textContent=t;e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),3200)};
+const short=s=>String(s).split(',').slice(0,3).join(',').trim();
+
+/* ---------- login / signup ---------- */
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  mode=b.dataset.m;
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  $('nameIn').classList.toggle('hidden',mode!=='signup');
+  $('go1').textContent=mode==='signup'?'Create account':'Log in';
+  $('msg').textContent='';
+});
+$('form').onsubmit=async e=>{
+  e.preventDefault();$('go1').disabled=true;$('msg').textContent='';
+  const em=$('em').value.trim(),pw=$('pw').value,nm=$('nameIn').value.trim();
+  try{
+    if(mode==='signup'){
+      if(!nm)throw {message:'Enter your name.'};
+      const c=await createUserWithEmailAndPassword(auth,em,pw);
+      await updateProfile(c.user,{displayName:nm});
+      await setDoc(doc(db,'users',c.user.uid),{name:nm,email:em,role:'rider',createdAt:serverTimestamp()});
+      $('who').textContent=nm;
+    }else await signInWithEmailAndPassword(auth,em,pw);
+  }catch(x){$('msg').textContent=err(x)}
+  $('go1').disabled=false;
+};
+$('out').onclick=()=>signOut(auth);
+
+/* ---------- map helpers ---------- */
+const icon=c=>L.divIcon({className:'',html:`<i class="pin ${c}"></i>`,iconSize:[12,12],iconAnchor:[6,6]});
+function hav(a,b){const t=x=>x*Math.PI/180,dl=t(b.lat-a.lat),dn=t(b.lng-a.lng),x=Math.sin(dl/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dn/2)**2;return 12742*Math.asin(Math.sqrt(x))}
+async function dist(a,b){ // road distance from OSRM demo server, falls back to straight line x 1.3
+  try{const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=false`);const j=await r.json();return j.routes[0].distance/1000}
+  catch{return hav(a,b)*1.3}
+}
+async function rev(lat,lng){
+  try{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=17&lat=${lat}&lon=${lng}`);const j=await r.json();return short(j.display_name)||'Pinned location'}
+  catch{return `${lat.toFixed(4)}, ${lng.toFixed(4)}`}
+}
+function initMap(){
+  if(map){map.invalidateSize();return}
+  map=L.map('map',{zoomControl:false}).setView([20.59,78.96],5);
+  map.attributionControl.setPosition('topleft');
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+  map.on('click',e=>{if(!rideId)setDrop(e.latlng.lat,e.latlng.lng)});
+  locate();
+}
+function locate(){
+  if(!navigator.geolocation){$('pl').textContent='Location is not supported on this device';return}
+  navigator.geolocation.getCurrentPosition(
+    p=>{setPick(p.coords.latitude,p.coords.longitude);map.setView([p.coords.latitude,p.coords.longitude],15)},
+    ()=>{$('pl').textContent='Allow location access, then tap Locate me'},
+    {enableHighAccuracy:true,timeout:15000});
+}
+async function setPick(lat,lng){
+  const p=pick={lat,lng};
+  if(pm)pm.setLatLng([lat,lng]);
+  else{pm=L.marker([lat,lng],{icon:icon('lime'),draggable:true}).addTo(map);pm.on('dragend',()=>{const q=pm.getLatLng();setPick(q.lat,q.lng)})}
+  $('pl').textContent='Finding address…';
+  p.label=await rev(lat,lng);
+  if(p===pick){$('pl').textContent=p.label;quote()}
+}
+async function setDrop(lat,lng,label){
+  const d=drop={lat,lng};
+  if(dm)dm.setLatLng([lat,lng]);
+  else{dm=L.marker([lat,lng],{icon:icon('red'),draggable:true}).addTo(map);dm.on('dragend',()=>{const q=dm.getLatLng();setDrop(q.lat,q.lng)})}
+  d.label=label||await rev(lat,lng);
+  if(d===drop){$('q').value=d.label;quote()}
+}
+async function quote(){
+  if(!pick||!drop)return;
+  const a=pick,b=drop;
+  $('book').disabled=true;$('fare').textContent='Calculating fare…';
+  const k=await dist(a,b);
+  if(a!==pick||b!==drop)return;
+  km=k;fare=Math.max(MIN,Math.round(BASE+PERKM*km));
+  $('fare').innerHTML=`<b>₹${fare}</b> for ${km.toFixed(1)} km. Pay cash to the driver.`;
+  $('book').disabled=false;
+  map.fitBounds([[a.lat,a.lng],[b.lat,b.lng]],{paddingTopLeft:[40,80],paddingBottomRight:[40,300]});
+}
+$('loc').onclick=locate;
+$('go').onclick=async()=>{
+  const q=$('q').value.trim();if(!q)return;
+  try{
+    const r=await(await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q='+encodeURIComponent(q))).json();
+    if(!r[0])return toast('Place not found. Try a nearby landmark or tap the map.');
+    setDrop(+r[0].lat,+r[0].lon,short(r[0].display_name));
+  }catch{toast('Search failed. Tap the map to set your drop point.')}
+};
+$('q').onkeydown=e=>{if(e.key==='Enter')$('go').click()};
+
+/* ---------- booking ---------- */
+const TXT={pending:'Looking for a driver…',accepted:'Your driver is on the way',ongoing:'Ride in progress',completed:'Ride completed',cancelled:'Ride cancelled'};
+$('book').onclick=async()=>{
+  const u=auth.currentUser;$('book').disabled=true;
+  try{
+    const r=await addDoc(collection(db,'rides'),{
+      riderId:u.uid,customerName:u.displayName||u.email,
+      pickup:pick.label||'Pinned location',dropoff:drop.label||'Pinned location',
+      pickupLoc:{lat:pick.lat,lng:pick.lng},dropLoc:{lat:drop.lat,lng:drop.lng},
+      distanceKm:+km.toFixed(1),fare,status:'pending',createdAt:serverTimestamp()});
+    watch(r.id);
+  }catch(e){toast(err(e));$('book').disabled=false}
+};
+function watch(id){
+  rideId=id;$('plan').classList.add('hidden');$('ride').classList.remove('hidden');
+  unsub&&unsub();
+  unsub=onSnapshot(doc(db,'rides',id),s=>{
+    const d=s.data();if(!d)return;const st=d.status;
+    $('rs').innerHTML=`<b>${TXT[st]||st}</b><p class="muted">Fare ₹${d.fare}. Pay cash to the driver.</p>`;
+    $('cancel').classList.toggle('hidden',!['pending','accepted'].includes(st));
+    $('again').classList.toggle('hidden',!['completed','cancelled'].includes(st));
+  },e=>toast(err(e)));
+}
+$('cancel').onclick=()=>updateDoc(doc(db,'rides',rideId),{status:'cancelled',updatedAt:serverTimestamp()}).catch(e=>toast(err(e)));
+function reset(){
+  unsub&&unsub();unsub=null;rideId=null;drop=null;
+  if(dm){dm.remove();dm=null}
+  $('q').value='';$('fare').textContent='Choose a drop point to see the fare.';$('book').disabled=true;
+  $('ride').classList.add('hidden');$('plan').classList.remove('hidden');
+}
+$('again').onclick=reset;
+
+onAuthStateChanged(auth,u=>{
+  $('auth').classList.toggle('hidden',!!u);$('app').classList.toggle('hidden',!u);
+  if(u){$('who').textContent=u.displayName||u.email;initMap()}else reset();
+});
+</script>
+</body>
+</html>
